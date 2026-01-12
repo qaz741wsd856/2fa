@@ -504,9 +504,12 @@
                     <img id="qr-preview">
                 </div>
                 <div id="add-error" class="error hidden"></div>
-                <div class="modal-actions">
+                <div class="modal-actions" id="modal-actions-manual">
                     <button class="btn-secondary" onclick="hideAddModal()">取消</button>
                     <button class="btn-primary" onclick="addKey()">添加</button>
+                </div>
+                <div class="modal-actions hidden" id="modal-actions-other">
+                    <button class="btn-secondary" onclick="hideAddModal()" style="width: 100%;">取消</button>
                 </div>
             </div>
         </div>
@@ -940,6 +943,16 @@
             const activeContent = document.getElementById(`tab-${tab}`);
             if (activeTab) activeTab.classList.add('active');
             if (activeContent) activeContent.classList.add('active');
+
+            const actionsManual = document.getElementById('modal-actions-manual');
+            const actionsOther = document.getElementById('modal-actions-other');
+            if (tab === 'manual') {
+                actionsManual.classList.remove('hidden');
+                actionsOther.classList.add('hidden');
+            } else {
+                actionsManual.classList.add('hidden');
+                actionsOther.classList.remove('hidden');
+            }
         }
 
         function clearUploadPreview() {
@@ -1142,6 +1155,11 @@
 
             if (!secret) {
                 showError('add-error', '请输入密钥');
+                return;
+            }
+
+            if (keys.some(k => k.name === name)) {
+                showError('add-error', '该名称已存在');
                 return;
             }
 
