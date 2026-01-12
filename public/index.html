@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; media-src 'self' blob:;">
     <title>2FA Authenticator</title>
     <style>
         * {
@@ -397,7 +398,7 @@
             margin-top: 12px;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
 </head>
 <body>
     <div class="container">
@@ -529,6 +530,14 @@
         // QR Scanner State
         let qrStream = null;
         let qrScanInterval = null;
+
+        // ============ Utils ============
+        function generateId() {
+            if (typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+        }
 
         // ============ Session ============
         const SESSION_KEY = '2fa_session';
@@ -751,7 +760,20 @@
             if (!result.exists) {
                 return { exists: false, data: null, salt: null };
             }
-            const stored = JSON.parse(result.data);
+
+            let stored;
+            try {
+                stored = JSON.parse(result.data);
+            } catch (e) {
+                console.error('Invalid server response format:', e);
+                throw new Error('服务器响应格式错误');
+            }
+
+            if (!stored || typeof stored.encryptedData !== 'string' || typeof stored.salt !== 'string') {
+                console.error('Missing required fields in server response');
+                throw new Error('服务器响应数据不完整');
+            }
+
             return { exists: true, data: stored.encryptedData, salt: stored.salt };
         }
 
@@ -776,14 +798,28 @@
             document.getElementById('enter-password').classList.remove('hidden');
         }
 
+        function validatePassword(password) {
+            if (password.length < 8) {
+                return { valid: false, error: '密码至少需要8个字符' };
+            }
+            if (!/[a-zA-Z]/.test(password)) {
+                return { valid: false, error: '密码需要包含至少一个字母' };
+            }
+            if (!/[0-9]/.test(password)) {
+                return { valid: false, error: '密码需要包含至少一个数字' };
+            }
+            return { valid: true };
+        }
+
         async function setupPassword() {
             const password = document.getElementById('new-password').value;
             const confirm = document.getElementById('confirm-password').value;
 
             hideError('setup-error');
 
-            if (password.length < 4) {
-                showError('setup-error', '密码至少需要4个字符');
+            const validation = validatePassword(password);
+            if (!validation.valid) {
+                showError('setup-error', validation.error);
                 return;
             }
 
@@ -1002,7 +1038,8 @@
                 } else if (err.name === 'NotFoundError') {
                     showError('add-error', '未检测到摄像头设备');
                 } else {
-                    showError('add-error', '摄像头启动失败: ' + err.message);
+                    console.error('Camera error:', err);
+                    showError('add-error', '摄像头启动失败, 请检查设备和权限设置');
                 }
                 status.textContent = '摄像头启动失败';
             }
@@ -1113,6 +1150,12 @@
                 return;
             }
 
+            clearUploadPreview();
+
+            const previewUrl = URL.createObjectURL(file);
+            preview.src = previewUrl;
+            preview.classList.add('show');
+
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
@@ -1138,8 +1181,6 @@
             };
 
             img.src = URL.createObjectURL(file);
-            preview.src = img.src;
-            preview.classList.add('show');
         }
 
         async function addKey() {
@@ -1170,7 +1211,7 @@
                 return;
             }
 
-            keys.push({ id: Date.now(), name, secret });
+            keys.push({ id: generateId(), name, secret });
             await saveKeys();
             hideAddModal();
             renderKeys();
@@ -1178,16 +1219,39 @@
 
         async function deleteKey(id) {
             if (!confirm('确定删除这个密钥吗?')) return;
-            keys = keys.filter(k => k.id !== id);
+            keys = keys.filter(k => String(k.id) !== String(id));
             await saveKeys();
             renderKeys();
         }
 
-        function copyCode(code) {
-            navigator.clipboard.writeText(code);
+        function showToast(message) {
             const toast = document.getElementById('copied-toast');
+            toast.textContent = message;
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 1500);
+        }
+
+        async function copyCode(code) {
+            try {
+                await navigator.clipboard.writeText(code);
+                showToast('已复制');
+            } catch (err) {
+                console.error('Clipboard API failed:', err);
+                const textarea = document.createElement('textarea');
+                textarea.value = code;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                textarea.style.pointerEvents = 'none';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('已复制');
+                } catch {
+                    showToast('复制失败');
+                }
+                document.body.removeChild(textarea);
+            }
         }
 
         function exportKeys() {
@@ -1219,6 +1283,10 @@
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
+                if (file.size > 1024 * 1024) {
+                    alert('文件过大, 请选择小于 1MB 的备份文件');
+                    return;
+                }
                 try {
                     const text = await file.text();
                     const data = JSON.parse(text);
@@ -1237,7 +1305,7 @@
                         }
                         try {
                             await generateTOTP(item.secret);
-                            keys.push({ id: Date.now() + imported, name: item.name, secret: item.secret });
+                            keys.push({ id: generateId(), name: item.name, secret: item.secret });
                             existingNames.add(item.name);
                             imported++;
                         } catch {
@@ -1278,10 +1346,10 @@
             for (const key of keys) {
                 const code = await generateTOTP(key.secret);
                 html += `
-                    <div class="token-item">
-                        <div class="token-info" onclick="copyCode('${code}')">
+                    <div class="token-item" data-key-id="${escapeHtml(String(key.id))}">
+                        <div class="token-info">
                             <div class="token-name">${escapeHtml(key.name)}</div>
-                            <div class="token-code">${code}</div>
+                            <div class="token-code">${escapeHtml(code)}</div>
                         </div>
                         <div class="token-actions">
                             <svg class="progress-ring" viewBox="0 0 36 36">
@@ -1291,12 +1359,31 @@
                                     stroke-dashoffset="${offset}"></circle>
                                 <text class="progress-text" x="18" y="18">${remaining}</text>
                             </svg>
-                            <button class="btn-danger" onclick="deleteKey(${key.id})">删除</button>
+                            <button class="btn-danger" data-action="delete">删除</button>
                         </div>
                     </div>
                 `;
             }
             list.innerHTML = html;
+        }
+
+        function setupTokenListEvents() {
+            const list = document.getElementById('token-list');
+            list.addEventListener('click', (e) => {
+                const tokenItem = e.target.closest('.token-item');
+                if (!tokenItem) return;
+
+                const keyId = tokenItem.dataset.keyId;
+
+                if (e.target.closest('.token-info')) {
+                    const code = tokenItem.querySelector('.token-code').textContent;
+                    copyCode(code);
+                }
+
+                if (e.target.closest('[data-action="delete"]')) {
+                    deleteKey(keyId);
+                }
+            });
         }
 
         function escapeHtml(str) {
@@ -1313,6 +1400,7 @@
         // ============ Init ============
         async function init() {
             setupUploadZone();
+            setupTokenListEvents();
             const session = loadSession();
 
             if (session) {
@@ -1335,6 +1423,17 @@
             document.getElementById('setup-password').classList.add('hidden');
             document.getElementById('enter-password').classList.remove('hidden');
         }
+
+        // ============ Page Lifecycle ============
+        window.addEventListener('beforeunload', () => {
+            stopQrScanner();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopQrScanner();
+            }
+        });
 
         init();
     </script>
