@@ -47,7 +47,7 @@ docker run -d \
   --name 2fa-auth \
   -p 3000:3000 \
   -v 2fa-data:/app/data \
-  yourusername/2fa-authenticator:latest
+  l981244680/2fa:latest
 
 # 访问 http://localhost:3000
 ```
@@ -59,7 +59,7 @@ docker run -d \
 ```yaml
 services:
   2fa:
-    image: yourusername/2fa-authenticator:latest
+    image: l981244680/2fa:latest
     container_name: 2fa-authenticator
     ports:
       - "3000:3000"

@@ -2,7 +2,7 @@
 
 [中文文档](./README.md)
 
-A cloud-based 2FA authenticator built on Cloudflare Workers + KV.
+A cloud-based 2FA authenticator supporting both Cloudflare Workers and Docker deployment.
 
 ## Features
 
@@ -15,12 +15,16 @@ A cloud-based 2FA authenticator built on Cloudflare Workers + KV.
 
 ## Architecture
 
+Two deployment methods supported:
+
+**Cloudflare Workers Deployment**:
 ```
 Browser <--HTTPS--> Cloudflare Worker <--KV API--> KV Storage
-   |                    |
-   | Client-side        | Only stores
-   | encrypt/decrypt    | ciphertext
-   | TOTP generation    | API routing
+```
+
+**Docker Deployment**:
+```
+Browser <--HTTP/HTTPS--> Express Server <--SQLite--> Local Database
 ```
 
 **Security Design**:
@@ -32,24 +36,74 @@ Browser <--HTTPS--> Cloudflare Worker <--KV API--> KV Storage
 
 ## Deployment Guide
 
-### Prerequisites
+### Method 1: Docker Deployment (Recommended)
+
+Prerequisites: Install [Docker](https://docs.docker.com/get-docker/)
+
+#### Using Docker Run
+
+```bash
+docker run -d \
+  --name 2fa-auth \
+  -p 3000:3000 \
+  -v 2fa-data:/app/data \
+  l981244680/2fa:latest
+
+# Visit http://localhost:3000
+```
+
+#### Using Docker Compose
+
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  2fa:
+    image: l981244680/2fa:latest
+    container_name: 2fa-authenticator
+    ports:
+      - "3000:3000"
+    volumes:
+      - 2fa-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  2fa-data:
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+#### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 3000 | HTTP service port |
+| `DB_PATH` | `/app/data/2fa.db` | SQLite database path |
+
+### Method 2: Cloudflare Workers Deployment
+
+#### Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+
 - [Cloudflare Account](https://dash.cloudflare.com/sign-up)
 
-### Step 1: Install Wrangler CLI
+#### Step 1: Install Wrangler CLI
 
 ```bash
 npm install -g wrangler
 ```
 
-### Step 2: Login to Cloudflare
+#### Step 2: Login to Cloudflare
 
 ```bash
 wrangler login
 ```
 
-### Step 3: Create KV Namespace
+#### Step 3: Create KV Namespace
 
 ```bash
 # Navigate to project directory
@@ -64,7 +118,7 @@ wrangler kv namespace create DATA_KV --preview
 # Output like: { binding = "DATA_KV", preview_id = "yyyyyyyyyyyy" }
 ```
 
-### Step 4: Configure wrangler.toml
+#### Step 4: Configure wrangler.toml
 
 Fill in the `id` and `preview_id` from the previous step into `wrangler.toml`:
 
@@ -80,14 +134,14 @@ id = "xxxxxxxxxxxx"        # Replace with your id
 preview_id = "yyyyyyyyyyyy" # Replace with your preview_id
 ```
 
-### Step 5: Local Testing (Optional)
+#### Step 5: Local Testing (Optional)
 
 ```bash
 wrangler dev
 # Visit http://localhost:8787
 ```
 
-### Step 6: Deploy
+#### Step 6: Deploy
 
 ```bash
 wrangler deploy
@@ -161,10 +215,15 @@ Click the logout button in the top left to clear current session and return to l
 ```
 2fa/
 ├── public/
-│   └── index.html  # Frontend
-├── worker.js       # Cloudflare Worker (handles /api/* requests only)
-├── wrangler.toml   # Wrangler configuration
-└── README.md       # Documentation
+│   └── index.html       # Frontend
+├── src/
+│   └── server.js        # Express server for Docker deployment
+├── worker.js            # Cloudflare Worker
+├── wrangler.toml        # Wrangler configuration
+├── Dockerfile           # Docker image definition
+├── docker-compose.yml   # Docker Compose configuration
+├── package.json         # npm dependencies
+└── README.md            # Documentation
 ```
 
 ## License
