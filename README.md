@@ -100,7 +100,11 @@ npm install -g wrangler
 wrangler login
 ```
 
-#### 步骤 3: 创建 KV 命名空间
+#### 步骤 3: KV 命名空间（可选）
+
+当 `wrangler.toml` 里只配置 `binding`（不填 `id`）时，wrangler 会在首次 `wrangler deploy` 时自动创建（或复用）KV 命名空间，重复部署也会绑定到同一个 KV。因此本仓库默认可以跳过本步骤。
+
+如果你想手动创建（例如明确指定/复用已有 KV），执行：
 
 ```bash
 # 进入项目目录
@@ -110,14 +114,15 @@ cd 2fa
 wrangler kv namespace create DATA_KV
 # 输出类似: { binding = "DATA_KV", id = "xxxxxxxxxxxx" }
 
-# 创建预览环境 KV
+# 创建预览环境 KV（可选）
 wrangler kv namespace create DATA_KV --preview
 # 输出类似: { binding = "DATA_KV", preview_id = "yyyyyyyyyyyy" }
 ```
 
 #### 步骤 4: 配置 wrangler.toml
 
-将上一步输出的 `id` 和 `preview_id` 填入 `wrangler.toml`：
+- 自动创建方式：保持 `wrangler.toml` 里 `[[kv_namespaces]]` 仅包含 `binding`，直接执行 `wrangler deploy`；Wrangler 会自动创建/复用 KV（不会修改 `wrangler.toml`）。
+- 手动方式：将上一步输出的 `id` / `preview_id` 填入 `wrangler.toml`：
 
 ```toml
 name = "2fa-sync"
@@ -146,6 +151,12 @@ wrangler deploy
 ```
 
 部署完成后，访问输出的 URL 即可使用。
+
+### GitHub Actions 自动部署（可选）
+
+本仓库包含一个用于自动部署 Cloudflare Worker 的工作流：
+
+- Deploy Cloudflare Worker：`.github/workflows/deploy-worker.yml` — 在 push 到 `main` 或手动触发时部署 Worker。需要在仓库 Secrets 中设置：`CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。
 
 ## 使用说明
 
@@ -211,6 +222,10 @@ wrangler deploy
 
 ```
 2fa/
+├── .github/
+│   └── workflows/
+│       ├── deploy-worker.yml   # Worker 自动部署
+│       └── docker-publish.yml  # Docker 镜像发布
 ├── public/
 │   └── index.html       # 前端页面
 ├── src/

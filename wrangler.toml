@@ -3,7 +3,12 @@ main = "worker.js"
 compatibility_date = "2024-01-01"
 assets = { directory = "./public" }
 
+# NOTE:
+# - Wrangler supports automatic resource provisioning. 
+# - If `id` is omitted/commented, it will be automatically created and linked.
+# - For manual setup, replace `__DATA_KV_ID__` with your own KV namespace id.
+
 [[kv_namespaces]]
 binding = "DATA_KV"
-id = "c7cdf4d7c8044af9b36f08a5e828cf12"
-preview_id = "8820785ab8904c67aaf22a85676b6e93"
+# id = "__DATA_KV_ID__"
+# preview_id = "__DATA_KV_PREVIEW_ID__"

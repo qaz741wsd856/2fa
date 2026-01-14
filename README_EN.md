@@ -100,7 +100,11 @@ npm install -g wrangler
 wrangler login
 ```
 
-#### Step 3: Create KV Namespace
+#### Step 3: KV Namespace (Optional)
+
+If `wrangler.toml` only sets `binding` (no `id`), wrangler will auto-provision (or reuse) the KV namespace on the first `wrangler deploy`, and subsequent deploys will still bind to the same KV. So you can skip this step by default.
+
+If you want to create it manually (for example, to pin/reuse an existing KV), run:
 
 ```bash
 # Navigate to project directory
@@ -110,14 +114,15 @@ cd 2fa
 wrangler kv namespace create DATA_KV
 # Output like: { binding = "DATA_KV", id = "xxxxxxxxxxxx" }
 
-# Create preview KV
+# Create preview KV (Optional)
 wrangler kv namespace create DATA_KV --preview
 # Output like: { binding = "DATA_KV", preview_id = "yyyyyyyyyyyy" }
 ```
 
 #### Step 4: Configure wrangler.toml
 
-Fill in the `id` and `preview_id` from the previous step into `wrangler.toml`:
+- Auto provisioning: keep `[[kv_namespaces]]` with only `binding` and run `wrangler deploy`; Wrangler will auto-provision/reuse KV (and won't modify `wrangler.toml`).
+- Manual: fill the `id` / `preview_id` from the previous step into `wrangler.toml`:
 
 ```toml
 name = "2fa-sync"
@@ -146,6 +151,12 @@ wrangler deploy
 ```
 
 After deployment, visit the output URL to start using.
+
+## GitHub Actions Auto Deploy (Optional)
+
+This repository includes an automatic deployment workflow for the Cloudflare Worker:
+
+- Deploy Cloudflare Worker: `.github/workflows/deploy-worker.yml` — deploys the Worker on push to `main` or via manual dispatch. Requires the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
 ## Usage Guide
 
@@ -211,6 +222,10 @@ Click the logout button in the top left to clear current session and return to l
 
 ```
 2fa/
+├── .github/
+│   └── workflows/
+│       ├── deploy-worker.yml   # Deploy Cloudflare Worker
+│       └── docker-publish.yml  # Build/push Docker image
 ├── public/
 │   └── index.html       # Frontend
 ├── src/
