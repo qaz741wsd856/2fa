@@ -64,11 +64,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - 2fa-data:/app/data
+      - ./data:/app/data
     restart: unless-stopped
-
-volumes:
-  2fa-data:
 ```
 
 然后运行：
