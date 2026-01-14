@@ -2,7 +2,7 @@
 
 [English](./README_EN.md)
 
-基于 Cloudflare Workers + KV 的云端 2FA 认证器。
+云端 2FA 认证器，支持 Cloudflare Workers 和 Docker 两种部署方式。
 
 ## 功能特性
 
@@ -15,11 +15,16 @@
 
 ## 技术架构
 
+支持两种部署方式：
+
+**Cloudflare Workers 部署**:
 ```
 浏览器 <--HTTPS--> Cloudflare Worker <--KV API--> KV 存储
-   |                    |
-   | 客户端加密/解密     | 只存储密文
-   | TOTP 生成          | API 路由
+```
+
+**Docker 部署**:
+```
+浏览器 <--HTTP/HTTPS--> Express Server <--SQLite--> 本地数据库
 ```
 
 **安全设计**：
@@ -31,24 +36,74 @@
 
 ## 部署教程
 
-### 前置条件
+### 方式一：Docker 部署（推荐）
+
+前置条件：安装 [Docker](https://docs.docker.com/get-docker/)
+
+#### 使用 Docker Run
+
+```bash
+docker run -d \
+  --name 2fa-auth \
+  -p 3000:3000 \
+  -v 2fa-data:/app/data \
+  yourusername/2fa-authenticator:latest
+
+# 访问 http://localhost:3000
+```
+
+#### 使用 Docker Compose
+
+创建 `docker-compose.yml` 文件：
+
+```yaml
+services:
+  2fa:
+    image: yourusername/2fa-authenticator:latest
+    container_name: 2fa-authenticator
+    ports:
+      - "3000:3000"
+    volumes:
+      - 2fa-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  2fa-data:
+```
+
+然后运行：
+
+```bash
+docker compose up -d
+```
+
+#### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | 3000 | HTTP 服务端口 |
+| `DB_PATH` | `/app/data/2fa.db` | SQLite 数据库路径 |
+
+### 方式二：Cloudflare Workers 部署
+
+#### 前置条件
 
 - [Node.js](https://nodejs.org/) 18+
 - [Cloudflare 账户](https://dash.cloudflare.com/sign-up)
 
-### 步骤 1: 安装 Wrangler CLI
+#### 步骤 1: 安装 Wrangler CLI
 
 ```bash
 npm install -g wrangler
 ```
 
-### 步骤 2: 登录 Cloudflare
+#### 步骤 2: 登录 Cloudflare
 
 ```bash
 wrangler login
 ```
 
-### 步骤 3: 创建 KV 命名空间
+#### 步骤 3: 创建 KV 命名空间
 
 ```bash
 # 进入项目目录
@@ -63,7 +118,7 @@ wrangler kv namespace create DATA_KV --preview
 # 输出类似: { binding = "DATA_KV", preview_id = "yyyyyyyyyyyy" }
 ```
 
-### 步骤 4: 配置 wrangler.toml
+#### 步骤 4: 配置 wrangler.toml
 
 将上一步输出的 `id` 和 `preview_id` 填入 `wrangler.toml`：
 
@@ -79,14 +134,14 @@ id = "xxxxxxxxxxxx"        # 替换为你的 id
 preview_id = "yyyyyyyyyyyy" # 替换为你的 preview_id
 ```
 
-### 步骤 5: 本地测试
+#### 步骤 5: 本地测试
 
 ```bash
 wrangler dev
 # 访问 http://localhost:8787
 ```
 
-### 步骤 6: 部署
+#### 步骤 6: 部署
 
 ```bash
 wrangler deploy
@@ -160,10 +215,15 @@ wrangler deploy
 ```
 2fa/
 ├── public/
-│   └── index.html  # 前端页面
-├── worker.js       # Cloudflare Worker（只处理 /api/* 请求）
-├── wrangler.toml   # Wrangler 配置文件
-└── README.md       # 本文档
+│   └── index.html       # 前端页面
+├── src/
+│   └── server.js        # Docker 版本的 Express 服务器
+├── worker.js            # Cloudflare Worker
+├── wrangler.toml        # Wrangler 配置文件
+├── Dockerfile           # Docker 镜像定义
+├── docker-compose.yml   # Docker Compose 配置
+├── package.json         # npm 依赖配置
+└── README.md            # 本文档
 ```
 
 ## License
