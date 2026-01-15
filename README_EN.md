@@ -10,6 +10,8 @@ A cloud-based 2FA authenticator supporting both Cloudflare Workers and Docker de
 - **Cloud Sync**: Data stored in Cloudflare KV, accessible across devices
 - **End-to-End Encryption**: AES-256-GCM encryption, server only stores ciphertext
 - **Zero Registration**: No email/phone required, create account with just a master password
+- **PWA Support**: Install to desktop/home screen for native app experience
+- **Offline Access**: Full offline support after first login, data cached for 7 days
 - **QR Code Scanning**: Support camera scanning, image upload, and clipboard paste to recognize QR codes
 - **Import/Export**: JSON format backup support for data migration and local backup
 
@@ -216,7 +218,8 @@ Click the logout button in the top left to clear current session and return to l
 1. **Password Cannot Be Recovered**: Forgetting password means losing all data - remember your master password
 2. **Password = Account**: Same password = same account, use the same password on different devices to sync data
 3. **Session Expiry**: Session expires when browser tab is closed, password required to login again
-4. **Network Required**: Internet connection required (data stored in cloud)
+4. **Offline Mode**: First login requires internet, then works offline (cache valid for 7 days)
+5. **Data Sync**: Offline changes sync automatically when online; conflicts prompt user to choose
 
 ## Project Structure
 
@@ -227,7 +230,10 @@ Click the logout button in the top left to clear current session and return to l
 │       ├── deploy-worker.yml   # Deploy Cloudflare Worker
 │       └── docker-publish.yml  # Build/push Docker image
 ├── public/
-│   └── index.html       # Frontend
+│   ├── icons/           # PWA icons
+│   ├── index.html       # Frontend
+│   ├── manifest.json    # PWA manifest
+│   └── service-worker.js # Service Worker (offline cache)
 ├── src/
 │   └── server.js        # Express server for Docker deployment
 ├── worker.js            # Cloudflare Worker
